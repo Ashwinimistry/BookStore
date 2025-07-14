@@ -30,10 +30,15 @@ const CartSidePanel = ({ isOpen, onClose, cart, onUpdateQuantity, onRemoveFromCa
         <button onClick={onClose} style={{
           background: 'none',
           border: 'none',
-          fontSize: '24px',
-          cursor: 'pointer'
-        }}>
-          &times;
+          fontSize: '28px',
+          cursor: 'pointer',
+          color: 'var(--text-secondary)',
+          padding: '4px',
+          lineHeight: 1
+        }}
+        aria-label="Close cart panel"
+        >
+          ✕
         </button>
       </div>
 

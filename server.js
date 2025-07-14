@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -6,20 +7,24 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const fetch = require('node-fetch');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const SECRET_KEY = 'your_very_secret_key'; // Use a more secure key in production
+const SECRET_KEY = process.env.SECRET_KEY;
 
-app.use(cors());
+app.use(helmet());
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
 app.use(bodyParser.json());
 
 // --- MySQL Database Connection ---
 const dbConfig = {
-  host: 'localhost',
-  user: 'root', // ⚠️ Replace with your MySQL username
-  password: 'Gup$hup.i0@25', // ⚠️ Replace with your MySQL password
-  database: 'bookstore' // ⚠️ Replace with your database name
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER, // Use a dedicated DB user with limited privileges
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 };
 
 let db;
@@ -94,22 +99,15 @@ async function setupDatabaseTables() {
 
 // --- Middleware ---
 const authenticateToken = (req, res, next) => {
-  console.log('--- Authenticate Token Middleware ---');
   const authHeader = req.headers['authorization'];
-  console.log('Authorization Header:', authHeader);
   const token = authHeader && authHeader.split(' ')[1];
-
   if (token == null) {
-    console.log('Token not found. Access denied.');
     return res.sendStatus(401);
   }
-
   jwt.verify(token, SECRET_KEY, (err, user) => {
     if (err) {
-      console.error('JWT Verification Error:', err.message);
       return res.sendStatus(403);
     }
-    console.log('Token verified successfully. User:', user);
     req.user = user;
     next();
   });
@@ -123,6 +121,11 @@ app.post('/api/auth/register', async (req, res) => {
 
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required' });
+  }
+
+  // Password strength: min 8 chars, at least 1 letter and 1 number
+  if (!/^.*(?=.{8,})(?=.*[a-zA-Z])(?=.*\d).*$/.test(password)) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters and include a letter and a number.' });
   }
 
   try {
